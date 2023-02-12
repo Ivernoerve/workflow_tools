@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+# Usage:
+# latfig path_prefix
+#
+# Example:
+# ls -1 | latfig "images/" | pbcopy
+
+
+path="$1"
+
+echo "$(</dev/stdin)" | 
+jq -R -r '"\\begin{subfigure}[b]{0.49\\textwidth}\\includegraphics[width=\\textwidth]{'$path'"+.+"}\\caption{}\\label{fig_"+(.|sub(".jpg";""))+"}\\end{subfigure}"' | 
+sed 's|}\\|}\n\\|g;' | 
+sed 's/^/    /' | 
+jq -Rrs '"\\begin{figure}\n\\centering\n"+.+"\\end{figure}"'
+
+
+
+
+
+
+

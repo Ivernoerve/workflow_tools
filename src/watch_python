@@ -1,0 +1,7 @@
+#!/usr/bin/env zsh
+
+# Hent inn argument nr. 1 fra $
+FIL=$1
+
+echo "$FIL" | entr -cs "echo \"PYTHON: $FIL\n\" && python3 $FIL"
+

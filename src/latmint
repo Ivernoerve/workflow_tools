@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+
+# Usage:
+# get minted syntax with file
+#
+# Example:
+#find . -maxdepth 1 | grep "search pattern" | latmint
+#search pattern example: "\.py"
+#run this in the folder of the code
+
+
+
+
+dirname="latex_result_files"
+if [ -d "/latex_result_files" ] 
+then
+    echo "path already exists"
+else
+    mkdir $dirname
+    #touch "$dirname/appendix_added.tex"
+fi
+
+
+
+if [ -z "$1" ]
+    then 
+    lang="python"
+else 
+    lang="$1"
+fi
+
+files="$(</dev/stdin)" 
+
+#basename 
+
+
+echo -e "created tex files:\n"
+
+touch "$dirname/appendix.tex"
+printf "\clearpage\n\section{Appendix}\n\n" > "$dirname/appendix.tex"
+
+for file in $files
+do
+    #echo $file
+    #name #([^\/]+$)
+   
+    name=$(basename "$file")
+    filename=$name
+    name="${name%.*}"
+    
+    name="$name"".tex"
+
+    touch "$dirname/$name"
+
+
+    echo $name
+
+    echo "\begin{minted}[linenos,tabsize=2,breaklines]{$lang}" >"$dirname/$name"
+    cat $file >>"$dirname/$name"
+    echo -e "\n\end{minted}" >>"$dirname/$name"
+
+    #creating appendix
+    su=$(echo $filename | sed -e 's|_|\\_|g')
+    echo $su
+    printf "\subsection{$su}\n\input{$dirname/$name}\n\clearpage\n\n" >> "$dirname/appendix.tex"
+    
+
+done
+
+#echo "\begin{minted}[linenos,tabsize=2,breaklines]{$lang}"
+#echo "$(</dev/stdin)" 
+#echo "\end{minted}"
+
+#/.+?(?=abc)/

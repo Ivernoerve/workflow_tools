@@ -1,0 +1,222 @@
+#!/usr/bin/env zsh
+
+#Functions to open utilities
+
+open_terminal() {
+  open -a 'Terminal' "$1"
+}
+
+open_vscode () {
+  open -a 'Visual Studio Code' "$1"
+}
+
+open_finder () {
+  open -a 'Finder' "$1"
+}
+
+open_safari () {
+  open -a safari -u "$1"
+}
+
+open_sublime (){
+  open -a 'sublime text' "$1"
+}
+
+
+#Functions initiantes a new project given that there is no project active in the current directory 
+# exits arg 0 if there exists a project in the directory, or if there is not given a project name argument
+project_init(){
+    if [ -f ".work-config.json" ] 
+    then
+        echo "Project '$(jq -r '.project' .work-config.json)' already active in this directory\nUse 'work edit' to edit the config file."
+        exit 0
+    elif [[ -z "$1" ]]
+    then 
+        echo "Missing project name (second arg)."
+        exit 0
+    fi
+    echo "$1"
+
+    (jq -n '{project: $prj, language: $lang, path: $dir, tools: 
+            [
+                {tool: "terminal",
+                src: "."},
+                {tool: "sublime", 
+                src: "."},
+                {tool: "finder", 
+                src: "."}
+            ]}' \
+        --arg prj "$1" \
+        --arg lang "python" \
+        --arg dir "$(pwd)" \
+    ) > ".work-config.json"
+
+    exit 1
+}
+
+
+# Function finds the given project and returns echoes the json config if found 
+# exits arg 0 if the given project does not match any active projects
+project_find (){
+    cd 
+    local PROJECT_PATHS=("${(@f)$(find  . -name '.work-config.json' 2>/dev/null)}")
+    local PROJECT=$(jq -s -r --arg "prj" "$1" '.[] | select(.project == $prj)' $PROJECT_PATHS)
+
+    if [[ -z "$PROJECT" ]]
+    then 
+        echo "The project: $1 is not active. The current active projects are:"
+        echo $(jq   --slurp '.[].project'  $PROJECT_PATHS)
+
+        exit 0
+    fi
+
+    echo "$PROJECT"
+}
+
+
+# Function edits the work config in the current directory 
+# Exits arg 0 if there is no work-condig in the directory, no key to edit or no new value given (args 1 and 2)
+project_edit (){
+    if [ ! -f ".work-config.json" ] 
+    then
+        echo "There is no active work project in this directory"
+        exit 0
+    elif [[ -z "$1" ]]
+    then 
+        echo "Missing config value name to alter (second arg)."
+        bat .work-config.json
+        exit 0
+    elif [[ -z "$2" ]]
+    then 
+        echo "Missing replacement value (third arg)."
+        exit 0
+    fi
+
+
+    local TMP=$(jq '.' .work-config.json)
+    
+
+    if $(echo "$TMP" | jq -r --arg "key" "$1" 'del(.tools) | keys | any(. == $key)')
+    then 
+       echo "$(echo "$TMP" | jq --arg "key" "$1" --arg "val" "$2" '.[$key] = $val')" > ".work-config.json"
+       exit 1
+    fi 
+    
+    case "$1" in 
+    rmtool)
+        local TOOLINDEX=$(echo "$TMP" |jq -r --arg "val" "$2" '.tools | [ .[] | .tool] | index($val)')
+        if [[ $TOOLINDEX != null ]]
+        then         
+            echo "$(echo "$TMP" | jq --arg "ind" "$TOOLINDEX" 'del(.tools[$ind|tonumber])')" > ".work-config.json"
+            exit 1
+        fi
+        echo "tool $2 does is not in the work config\nThe tools in config are:"
+        echo $(echo "$TMP" | jq -r '.tools |  .[] | .tool')
+        exit 0
+    
+    ;;
+    addtool)    
+        local TOOLEXISTS=$(echo "$TMP" | jq --arg val "$2" '.tools | [.[] | .tool] | any(. == $val)')
+
+        if ! $TOOLEXISTS
+        then 
+            if [[ -z $3 ]]
+            then 
+                VAL="."
+            else 
+                VAL="$3"
+        fi
+        echo "$(echo "$TMP" | jq --arg key "$2" --arg val "$VAL" '.tools += [{tool: $key, src: $val}]')" > ".work-config.json"
+        exit 1
+        fi
+
+        echo "tool $2 already exists in work-config"
+        exit 0
+    ;;
+    esac
+
+    echo "Nothing matched the given argument $1."
+    bat .work-config.json
+
+    exit 0
+}
+
+project_open (){
+    local PROJECT=$(project_find "$1")
+
+    
+    cd "$(echo "$PROJECT" | jq -r '.path')"
+
+    local N_TOOLS=$(echo "$PROJECT" | jq '.tools | length - 1')
+    echo "$N_TOOLS"
+
+
+    for i in {0..$N_TOOLS}
+    do 
+        PROJECTARGS=($(jq -r --arg ind "$i" '.tools[$ind|tonumber] | .[]' .work-config.json))
+        eval '"open_$PROJECTARGS[1]" "$PROJECTARGS[2,-1]"'
+    done
+
+    exit 1
+}
+
+project_delete () {
+    local PROJECT=$(project_find "$1")
+
+    
+    cd "$(echo "$PROJECT" | jq -r '.path')"
+    rm ".work-config.json"
+    exit 1
+}
+
+
+project_list (){
+    cd 
+    local PROJECT_PATHS=("${(@f)$(find  . -name '.work-config.json' 2>/dev/null)}")
+    echo $(jq   --slurp '.[].project'  $PROJECT_PATHS)
+
+    exit 1
+}
+
+
+#------------------------------------------
+#
+# Declaring functions above, runscript below.
+#
+#------------------------------------------
+
+if [[ -z "$1" ]]
+then 
+    echo "script usage: $(basename $0)\n"
+    echo "[init \$new_project_name] Creates a new work project inside the current directory\n"
+    echo "[edit \$[project, language, addtool, rmtool], \$new_property ] edits an active project. call blank to see config\n"
+    echo "[open \$project_to_open] Opens the given project, call blank to active projects\n"
+    echo ""
+    exit 1
+fi
+
+
+case "$1" in 
+    init)
+        args=($argv[2,-1])
+        project_init $args
+    ;;
+    edit)
+        args=($argv[2,-1])
+        project_edit $args
+    ;;
+    open)
+        args=($argv[2,-1])
+        project_open $args
+    ;;
+
+    delete)
+        args=($argv[2,-1])
+        project_delete $args
+    ;;
+
+    list)
+        project_list
+    ;;
+esac
+

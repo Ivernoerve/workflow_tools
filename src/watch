@@ -1,0 +1,9 @@
+#!/bin/zsh
+
+
+
+# Hent inn argument nr. 1 fra $
+FIL=$1
+
+
+echo "$FIL" | entr -cs "echo \"CLANG:\n\" && clang $FIL -o output && echo \"\n\n\nRUN:\n\" && ./output"
