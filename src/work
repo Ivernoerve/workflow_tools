@@ -48,7 +48,7 @@ project_init(){
             ]}' \
         --arg prj "$1" \
         --arg lang "python" \
-        --arg dir "$(pwd)" \
+        --arg dir "$PWD" \
     ) > ".work-config.json"
 
     exit 1
@@ -141,30 +141,27 @@ project_edit (){
     exit 0
 }
 
+
 project_open (){
-    local PROJECT=$(project_find "$1")
-
     
-    cd "$(echo "$PROJECT" | jq -r '.path')"
+    cd "$(echo "$1" | jq -r '.path')"
 
-    local N_TOOLS=$(echo "$PROJECT" | jq '.tools | length - 1')
-    echo "$N_TOOLS"
-
+    local N_TOOLS=$(echo "$1" | jq '.tools | length - 1')
 
     for i in {0..$N_TOOLS}
     do 
         PROJECTARGS=($(jq -r --arg ind "$i" '.tools[$ind|tonumber] | .[]' .work-config.json))
+        
         eval '"open_$PROJECTARGS[1]" "$PROJECTARGS[2,-1]"'
     done
 
     exit 1
 }
 
-project_delete () {
-    local PROJECT=$(project_find "$1")
 
+project_delete () {
     
-    cd "$(echo "$PROJECT" | jq -r '.path')"
+    cd "$(echo "$1" | jq -r '.path')"
     rm ".work-config.json"
     exit 1
 }
@@ -184,6 +181,7 @@ project_list (){
 # Declaring functions above, runscript below.
 #
 #------------------------------------------
+
 
 if [[ -z "$1" ]]
 then 
@@ -206,17 +204,22 @@ case "$1" in
         project_edit $args
     ;;
     open)
-        args=($argv[2,-1])
-        project_open $args
+        project_open "$(project_find $2)" 
     ;;
 
     delete)
-        args=($argv[2,-1])
-        project_delete $args
+        project_delete "$(project_find $2)" 
     ;;
 
     list)
         project_list
     ;;
+    alfred_open)
+        project_open "$2"
+    ;;
+    alfred_delete)
+        project_delete "$2"
+    ;;
+
 esac
 
