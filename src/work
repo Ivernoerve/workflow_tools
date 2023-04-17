@@ -3,7 +3,7 @@
 #Functions to open utilities
 
 open_terminal() {
-  open -a 'Terminal' "$1"
+    open -a 'terminal' "$1"
 }
 
 open_vscode () {
@@ -35,7 +35,14 @@ project_init(){
         echo "Missing project name (second arg)."
         exit 0
     fi
-    echo "$1"
+    
+    if [[ -z "$2" ]]
+    then 
+        local lang="python"
+    else
+        local lang="$2"
+    fi
+
 
     (jq -n '{project: $prj, language: $lang, path: $dir, tools: 
             [
@@ -47,7 +54,7 @@ project_init(){
                 src: "."}
             ]}' \
         --arg prj "$1" \
-        --arg lang "python" \
+        --arg lang "$lang" \
         --arg dir "$PWD" \
     ) > ".work-config.json"
 
@@ -59,7 +66,7 @@ project_init(){
 # exits arg 0 if the given project does not match any active projects
 project_find (){
     cd 
-    local PROJECT_PATHS=("${(@f)$(find  . -name '.work-config.json' 2>/dev/null)}")
+    local PROJECT_PATHS=("${(@f)$(rg --hidden --files . 2> /dev/null | rg .work-config.json)}")
     local PROJECT=$(jq -s -r --arg "prj" "$1" '.[] | select(.project == $prj)' $PROJECT_PATHS)
 
     if [[ -z "$PROJECT" ]]
@@ -169,7 +176,7 @@ project_delete () {
 
 project_list (){
     cd 
-    local PROJECT_PATHS=("${(@f)$(find  . -name '.work-config.json' 2>/dev/null)}")
+    local PROJECT_PATHS=("${(@f)$(rg --hidden --files . 2> /dev/null | rg .work-config.json)}")
     echo $(jq   --slurp '.[].project'  $PROJECT_PATHS)
 
     exit 1
